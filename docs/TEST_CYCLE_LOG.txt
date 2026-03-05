@@ -1,0 +1,70 @@
+SSC-CORE TEST CYCLE RECORD
+
+CYCLE_ID: 001
+DATE (UTC): 2026-03-03
+OPERATOR: SSC_CORE_DEMO
+
+STATUS: PASS
+DISCIPLINE_LEVEL: CIVILIZATION_GRADE
+
+ARTIFACT_SET: outputs_example/primary + outputs_example/replay
+
+CORE INVARIANTS
+
+Output preserved: phi((m,a,s)) = m
+
+Replay identity: B_A = B_B
+
+Structural invariants computed (trace-derived): Psi(t), Omega, K, F
+
+CHECKS (VERIFIER)
+
+PRIMARY_MANIFEST: PASS
+
+REPLAY_MANIFEST: PASS
+
+TRACE_DERIVED_CHECK_PRIMARY: PASS
+
+TRACE_DERIVED_CHECK_REPLAY: PASS
+
+REPLAY_IDENTITY (B_A = B_B): PASS
+
+OVERALL_STATUS: PASS
+
+TAMPER RITUAL
+
+Modified file: ssc_summary.txt
+
+Modification: M_OUT changed (1632 -> 1633)
+
+Expected result: FAIL
+
+Observed result: FAIL (HASH_MISMATCH: ssc_summary.txt)
+
+Restore: SUCCESS
+
+Post-restore verification: PASS
+
+TRACE-DERIVED COMPUTED VALUES (CYCLE 001)
+
+M_OUT: 1632
+
+W: 20
+
+W_ALLOW: 8
+
+WORK_ELIMINATED_FRACTION: 0.600000000000
+
+STRUCTURAL_SPEEDUP: 2.500000000000
+
+OMEGA: 8.969154302010
+
+K: 13
+
+F: c366930395f7ec63c3dd1935021292923ff70c6d8fafcc864ab6175a8f98cdaa
+
+NOTES
+
+Certificate integrity is enforced by trace-derived equality: ssc_trace.csv -> recompute -> SSC_CORE_CERTIFICATE.txt.
+
+All manifest-bound artifacts are replay-identical under the condition B_A = B_B.
