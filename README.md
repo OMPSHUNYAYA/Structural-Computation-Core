@@ -2,6 +2,8 @@
 
 **Deterministic Structural Computation Geometry — Without Modifying Classical Systems**
 
+![SSC-Core Verification](https://github.com/OMPSHUNYAYA/Structural-Computation-Core/actions/workflows/ssc_core_verify.yml/badge.svg)
+
 ![SSC-Core](https://img.shields.io/badge/SSC--Core-Structural%20Computation-black)
 ![Deterministic](https://img.shields.io/badge/Deterministic-Yes-green)
 ![Replay--Identity](https://img.shields.io/badge/Replay--Identity-B_A%20%3D%20B_B-brightgreen)
@@ -46,7 +48,10 @@ SSC-Core therefore establishes **binary structural certification of computation*
 - [Instrumentation Guide](docs/INSTRUMENTATION_GUIDE.md)  
 - [Structural Computation Model](docs/SSC-Core-Structural-Computation-Model.md)  
 - [SSC-Core Conformance Specification](docs/SSC-Core-Conformance-Specification.md)  
-- [Topology Visualization](docs/SSC-Core-Interactive-Topology.html)
+- [Topology Visualization (Interactive)](docs/SSC-Core-Interactive-Topology.html)  
+- [Topology Diagram](docs/SSC-Core-Topology-Diagram.png)  
+- [Concept Flyer](docs/Concept-Flyer_SSC-Core_v1.4.pdf)  
+- [SSC-Core Whitepaper](docs/SSC-Core_v1.4.pdf)
 
 These documents define the **deterministic structural computation model** implemented by SSC-Core.
 
