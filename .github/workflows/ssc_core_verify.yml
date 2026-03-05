@@ -1,0 +1,34 @@
+name: SSC-Core Deterministic Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ssc_core_verification:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Run primary execution
+      run: |
+        python scripts/run_ssc_core.py --out outputs_primary --label core
+
+    - name: Run replay execution
+      run: |
+        python scripts/run_ssc_core.py --out outputs_replay --label core
+
+    - name: Verify replay identity
+      run: |
+        python scripts/verify_ssc_core.py --primary outputs_primary --replay outputs_replay
