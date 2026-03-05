@@ -1,0 +1,26 @@
+{
+  "input_digest": "a79ace35ee24a5b0ea99e4407c750f1f49da35fa6cf0b8af00c5333cd4149a0f",
+  "input_xs": [
+    2,
+    7,
+    2,
+    9,
+    7,
+    3,
+    9,
+    9,
+    5,
+    3,
+    5,
+    2,
+    11,
+    7,
+    11,
+    13,
+    2,
+    13,
+    17,
+    17
+  ],
+  "operator": "SSC_CORE_DEMO"
+}

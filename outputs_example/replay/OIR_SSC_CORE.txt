@@ -1,0 +1,8 @@
+OPERATOR: SSC_CORE_DEMO
+OUTPUT_PRESERVATION: phi((m,a,s)) = m
+STATE: X(t) = (m(t), a(t), s(t), w(t))
+WORK_FIELD: Psi(t) = W_allow(t) / W(t)
+COMPRESSION: Omega = sum_{i=1..N} (1 - Psi(i))
+CURVATURE: K = sum_{i=2..N} |g(i) - g(i-1)|
+FINGERPRINT: F = sha256(g_stream || '|' || Psi_samples || '|' || Omega || '|' || K)
+DECISION_STREAM: g(i)=1 if ALLOW else 0
