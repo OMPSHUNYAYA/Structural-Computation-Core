@@ -1,0 +1,13 @@
+SET m 10
+SET w_allow 12
+SET w 6
+STEP
+SET m 10
+SET w_allow 12
+SET w 4
+STEP
+SET m 10
+SET w_allow 12
+SET w 3
+STEP
+HALT
