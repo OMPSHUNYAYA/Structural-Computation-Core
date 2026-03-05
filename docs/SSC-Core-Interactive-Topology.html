@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SSC-Core Interactive Topology Viewer</title>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#121a33;
+      --text:#e7ecff;
+      --muted:#aab3d6;
+      --line:#2b3a77;
+      --accent:#7aa2ff;
+      --accent2:#9cc2ff;
+      --ok:#61d37a;
+      --bad:#ff6b6b;
+    }
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:linear-gradient(180deg,#090d1b 0%,#0c1430 100%);
+      color:var(--text);
+    }
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding:18px;
+    }
+    h1{
+      margin:0 0 6px 0;
+      font-size:20px;
+      letter-spacing:.2px;
+    }
+    .sub{
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:16px;
+    }
+    .panel{
+      background:rgba(18,26,51,.9);
+      border:1px solid rgba(43,58,119,.7);
+      border-radius:12px;
+      padding:14px;
+    }
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    .controls input[type="file"]{
+      padding:8px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(43,58,119,.8);
+      border-radius:10px;
+      color:var(--text);
+    }
+    .btn{
+      padding:9px 12px;
+      border:1px solid rgba(43,58,119,.9);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:13px;
+    }
+    .btn:disabled{opacity:.5;cursor:not-allowed;}
+    .grid{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    @media (max-width:920px){
+      .grid{grid-template-columns:1fr;}
+    }
+    canvas{
+      width:100%;
+      height:360px;
+      background:rgba(0,0,0,.12);
+      border:1px solid rgba(43,58,119,.6);
+      border-radius:12px;
+      display:block;
+    }
+    .kv{
+      display:grid;
+      grid-template-columns:170px 1fr;
+      row-gap:8px;
+      column-gap:10px;
+      font-size:13px;
+      align-items:start;
+    }
+    .k{color:var(--muted);}
+    .v{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .note{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:10px;
+      line-height:1.35;
+    }
+    .err{color:var(--bad);font-weight:700;font-size:13px;}
+    .ok{color:var(--ok);font-weight:700;font-size:13px;}
+    .divider{
+      height:1px;
+      background:rgba(43,58,119,.7);
+      margin:12px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>SSC-Core Interactive Topology Viewer</h1>
+    <div class="sub">
+      Pure HTML + Canvas • Offline • Loads <span style="font-family:ui-monospace">ssc_trace.csv</span>
+      and renders <span style="font-family:ui-monospace">Psi(t)</span> and <span style="font-family:ui-monospace">g-stream</span> •
+      Recomputes <span style="font-family:ui-monospace">Omega, K, D, F</span> deterministically
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <input id="file" type="file" accept=".csv,text/csv">
+        <button id="btnExample" class="btn" type="button">Load Example (Built-in)</button>
+        <button id="btnPng" class="btn" type="button" disabled>Export Canvas PNG</button>
+        <span id="status" class="sub"></span>
+      </div>
+
+      <div class="note">
+        Expected CSV headers (from SSC-Core trace): <span class="v">W_allow_cum, Psi, g, sq_used</span><br>
+        The viewer recomputes:
+        <span class="v">m_out = sum(sq_used)</span>,
+        <span class="v">W = number of rows</span>,
+        <span class="v">W_allow = last W_allow_cum</span>,
+        <span class="v">Omega = sum(1 - Psi)</span>,
+        <span class="v">K = sum_{i=2..N} |g(i) - g(i-1)|</span>,
+        <span class="v">D = W_allow(N) / W(N)</span>,
+        <span class="v">F = sha256(g_stream || '|' || Psi_samples || '|' || Omega || '|' || K)</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <canvas id="cv" width="1200" height="360"></canvas>
+        <div class="note">
+          Top plot: <span class="v">Psi(t)</span> curve. Bottom plot: <span class="v">g(i)</span> bars (0/1).
+          Axes are deterministic and scale to your run.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="kv">
+          <div class="k">Rows (N)</div><div class="v" id="n">—</div>
+          <div class="k">m_out</div><div class="v" id="mout">—</div>
+          <div class="k">W</div><div class="v" id="W">—</div>
+          <div class="k">W_allow</div><div class="v" id="Wallow">—</div>
+          <div class="k">Psi(T)</div><div class="v" id="psiT">—</div>
+          <div class="k">Omega</div><div class="v" id="Omega">—</div>
+          <div class="k">K</div><div class="v" id="K">—</div>
+          <div class="k">D</div><div class="v" id="D">—</div>
+          <div class="k">F (sha256)</div><div class="v" id="F">—</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="note">
+          Canonicalization used for fingerprint payload:
+          <div class="v">g_str = ''.join(g)</div>
+          <div class="v">psi_str = ','.join(Psi formatted to 12 decimals)</div>
+          <div class="v">Omega formatted to 12 decimals</div>
+          <div class="v">K as integer string</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="msg" class="sub"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      file: document.getElementById("file"),
+      btnExample: document.getElementById("btnExample"),
+      btnPng: document.getElementById("btnPng"),
+      status: document.getElementById("status"),
+      cv: document.getElementById("cv"),
+      n: document.getElementById("n"),
+      mout: document.getElementById("mout"),
+      W: document.getElementById("W"),
+      Wallow: document.getElementById("Wallow"),
+      psiT: document.getElementById("psiT"),
+      Omega: document.getElementById("Omega"),
+      K: document.getElementById("K"),
+      D: document.getElementById("D"),
+      F: document.getElementById("F"),
+      msg: document.getElementById("msg"),
+    };
+
+    // Research-grade canvas rendering: crisp lines on HiDPI displays
+    function resizeCanvasToDisplaySize(canvas) {
+      const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+      const rect = canvas.getBoundingClientRect();
+      const cssW = Math.max(1, Math.round(rect.width));
+      const cssH = Math.max(1, Math.round(rect.height));
+      const newW = cssW * dpr;
+      const newH = cssH * dpr;
+
+      if (canvas.width !== newW || canvas.height !== newH) {
+        canvas.width = newW;
+        canvas.height = newH;
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
+      return { cssW, cssH, dpr };
+    }
+
+    function parseCSV(text) {
+      const norm = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+      const lines = norm.split("\n").filter(x => x.trim().length > 0);
+      if (lines.length < 2) throw new Error("CSV_TOO_SHORT");
+
+      const header = lines[0].split(",").map(s => s.trim());
+      const idx = {};
+      for (let i = 0; i < header.length; i++) idx[header[i]] = i;
+
+      const required = ["W_allow_cum", "Psi", "g", "sq_used"];
+      for (const k of required) {
+        if (!(k in idx)) throw new Error("MISSING_COLUMN: " + k);
+      }
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(",").map(s => s.trim());
+        if (parts.length < header.length) continue;
+
+        const W_allow_cum = parseInt(parts[idx["W_allow_cum"]], 10);
+        const Psi = parseFloat(parts[idx["Psi"]]);
+        const g = parseInt(parts[idx["g"]], 10);
+        const sq_used = parseInt(parts[idx["sq_used"]], 10);
+
+        if (!Number.isFinite(W_allow_cum) || !Number.isFinite(Psi) || !Number.isFinite(g) || !Number.isFinite(sq_used)) {
+          throw new Error("BAD_ROW_AT: " + i);
+        }
+
+        rows.push({ W_allow_cum, Psi, g, sq_used });
+      }
+
+      if (rows.length === 0) throw new Error("NO_DATA_ROWS");
+      return rows;
+    }
+
+    function fmt12(x) {
+      return Number(x).toFixed(12);
+    }
+
+    async function sha256HexFromString(s) {
+      const enc = new TextEncoder();
+      const data = enc.encode(s);
+      const digest = await crypto.subtle.digest("SHA-256", data);
+      const bytes = new Uint8Array(digest);
+      let hex = "";
+      for (const b of bytes) hex += b.toString(16).padStart(2, "0");
+      return hex;
+    }
+
+    function computeFromRows(rows) {
+      const N = rows.length;
+      let m_out = 0;
+      const psi = new Array(N);
+      const g = new Array(N);
+      let W_allow = 0;
+
+      for (let i = 0; i < N; i++) {
+        m_out += rows[i].sq_used;
+        psi[i] = rows[i].Psi;
+        g[i] = rows[i].g;
+        W_allow = rows[i].W_allow_cum;
+      }
+
+      let Omega = 0.0;
+      for (let i = 0; i < N; i++) Omega += (1.0 - psi[i]);
+
+      let K = 0;
+      for (let i = 1; i < N; i++) K += Math.abs(g[i] - g[i - 1]);
+
+      const W = N;
+      const D = (W === 0) ? 0 : (W_allow / W);
+      const psiT = psi[N - 1];
+
+      const g_str = g.map(v => String(v)).join("");
+      const psi_str = psi.map(v => fmt12(v)).join(",");
+      const payload = g_str + "|" + psi_str + "|" + fmt12(Omega) + "|" + String(K);
+
+      return { N, m_out, W, W_allow, psiT, Omega, K, D, g, psi, payload };
+    }
+
+    function drawPlots(canvas, psi, g) {
+      const { cssW: W, cssH: H } = resizeCanvasToDisplaySize(canvas);
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, W, H);
+
+      // Layout (CSS pixels)
+      const padL = 56, padR = 18, padT = 14, padB = 22;
+      const mid = Math.floor(H * 0.62);
+      const topH = mid - padT;
+      const botY0 = mid + 10;
+      const botH = H - botY0 - padB;
+
+      const N = psi.length;
+
+      function x(i) {
+        if (N === 1) return padL;
+        const t = i / (N - 1);
+        return padL + t * (W - padL - padR);
+      }
+
+      const psiMin = Math.min(...psi);
+      const psiMax = Math.max(...psi);
+      const psiLo = Math.min(0, psiMin);
+      const psiHi = Math.max(1, psiMax);
+      const psiRange = (psiHi - psiLo) || 1;
+
+      function yPsi(v) {
+        const t = (v - psiLo) / psiRange;
+        return padT + (1 - t) * (topH - 6);
+      }
+
+      function yG(v) {
+        return botY0 + (1 - v) * (botH - 6);
+      }
+
+      // grid
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(43,58,119,0.9)";
+      ctx.lineWidth = 1;
+
+      for (let k = 0; k <= 4; k++) {
+        const yy = padT + (k / 4) * (topH - 6);
+        ctx.beginPath();
+        ctx.moveTo(padL, yy);
+        ctx.lineTo(W - padR, yy);
+        ctx.stroke();
+      }
+
+      for (let k = 0; k <= 1; k++) {
+        const yy = botY0 + (k / 1) * (botH - 6);
+        ctx.beginPath();
+        ctx.moveTo(padL, yy);
+        ctx.lineTo(W - padR, yy);
+        ctx.stroke();
+      }
+
+      // labels
+      ctx.fillStyle = "rgba(231,236,255,0.92)";
+      ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+      ctx.fillText("Psi(t)", 8, padT + 12);
+      ctx.fillText("g(i)", 8, botY0 + 12);
+
+      ctx.fillStyle = "rgba(170,179,214,0.92)";
+      ctx.fillText(fmt12(psiHi), 8, padT + 2);
+      ctx.fillText(fmt12(psiLo), 8, padT + (topH - 6));
+      ctx.fillText("1", 8, botY0 + 2);
+      ctx.fillText("0", 8, botY0 + (botH - 6));
+
+      // PSI curve (thicker + subtle glow for clarity)
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+
+      // glow pass
+      ctx.strokeStyle = "rgba(122,162,255,0.25)";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const xx = x(i);
+        const yy = yPsi(psi[i]);
+        if (i === 0) ctx.moveTo(xx, yy);
+        else ctx.lineTo(xx, yy);
+      }
+      ctx.stroke();
+
+      // main pass
+      ctx.strokeStyle = "rgba(122,162,255,0.95)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const xx = x(i);
+        const yy = yPsi(psi[i]);
+        if (i === 0) ctx.moveTo(xx, yy);
+        else ctx.lineTo(xx, yy);
+      }
+      ctx.stroke();
+
+      // endpoint marker
+      const endX = x(N - 1);
+      const endY = yPsi(psi[N - 1]);
+      ctx.fillStyle = "rgba(156,194,255,0.95)";
+      ctx.beginPath();
+      ctx.arc(endX, endY, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // g bars: crisp, aligned
+      const plotW = (W - padL - padR);
+      const barW = Math.max(1, Math.floor(plotW / Math.max(1, N)));
+      ctx.fillStyle = "rgba(122,162,255,0.6)";
+
+      for (let i = 0; i < N; i++) {
+        const xx = x(i) - Math.floor(barW / 2);
+        const yTop = yG(g[i]);
+        const yBot = yG(0);
+        const h = yBot - yTop;
+        ctx.fillRect(Math.round(xx) + 0.5, Math.round(yTop) + 0.5, barW, Math.round(h));
+      }
+
+      // axes frames
+      ctx.strokeStyle = "rgba(43,58,119,1)";
+      ctx.lineWidth = 1.2;
+
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT + (topH - 6));
+      ctx.lineTo(W - padR, padT + (topH - 6));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(padL, botY0);
+      ctx.lineTo(padL, botY0 + (botH - 6));
+      ctx.lineTo(W - padR, botY0 + (botH - 6));
+      ctx.stroke();
+    }
+
+    function setStatus(text, kind) {
+      if (!text) {
+        els.status.textContent = "";
+        els.status.className = "sub";
+        return;
+      }
+      els.status.textContent = text;
+      els.status.className = (kind === "ok") ? "ok" : (kind === "err" ? "err" : "sub");
+    }
+
+    function setKV(res, Fhex) {
+      els.n.textContent = String(res.N);
+      els.mout.textContent = String(res.m_out);
+      els.W.textContent = String(res.W);
+      els.Wallow.textContent = String(res.W_allow);
+      els.psiT.textContent = fmt12(res.psiT);
+      els.Omega.textContent = fmt12(res.Omega);
+      els.K.textContent = String(res.K);
+      els.D.textContent = fmt12(res.D);
+      els.F.textContent = Fhex;
+    }
+
+    async function loadAndRender(csvText, label) {
+      try {
+        setStatus("Parsing trace…", "sub");
+        const rows = parseCSV(csvText);
+
+        setStatus("Computing geometry…", "sub");
+        const res = computeFromRows(rows);
+
+        setStatus("Hashing fingerprint…", "sub");
+        const Fhex = await sha256HexFromString(res.payload);
+
+        setKV(res, Fhex);
+        drawPlots(els.cv, res.psi, res.g);
+
+        els.btnPng.disabled = false;
+        els.msg.textContent = "Loaded: " + label + " • Fingerprint payload canonicalized with 12-decimal formatting.";
+        setStatus("OK", "ok");
+      } catch (e) {
+        els.btnPng.disabled = true;
+        els.msg.textContent = "";
+
+        els.n.textContent = "—";
+        els.mout.textContent = "—";
+        els.W.textContent = "—";
+        els.Wallow.textContent = "—";
+        els.psiT.textContent = "—";
+        els.Omega.textContent = "—";
+        els.K.textContent = "—";
+        els.D.textContent = "—";
+        els.F.textContent = "—";
+
+        const msg = (e && e.message) ? e.message : String(e);
+        setStatus("ERROR: " + msg, "err");
+      }
+    }
+
+    // File load (with reset so same file can be selected repeatedly)
+    els.file.addEventListener("change", async (ev) => {
+      const f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+
+      try {
+        const text = await f.text();
+        await loadAndRender(text, f.name);
+      } finally {
+        els.file.value = "";
+      }
+    });
+
+    // Export: render at crisp size before export (no blur)
+    els.btnPng.addEventListener("click", () => {
+      // ensure current canvas is sized to display before export
+      resizeCanvasToDisplaySize(els.cv);
+      const a = document.createElement("a");
+      a.download = "ssc_core_topology.png";
+      a.href = els.cv.toDataURL("image/png");
+      a.click();
+    });
+
+    const exampleCSV = [
+      "t,W_allow_cum,Psi,g,sq_used",
+      "1,0,0.000000000000,0,1",
+      "2,0,0.000000000000,0,4",
+      "3,0.000000000000,0,9".replace("0.000000000000", "0"), // harmless normalization for example line
+      "4,0,0.000000000000,0,16",
+      "5,0,0.000000000000,0,25",
+      "6,0,0.000000000000,0,36",
+      "7,1,0.142857142857,1,49",
+      "8,1,0.125000000000,0,64",
+      "9,2,0.222222222222,1,81",
+      "10,2,0.200000000000,0,100",
+      "11,3,0.272727272727,1,121",
+      "12,3,0.250000000000,0,144",
+      "13,4,0.307692307692,1,169",
+      "14,4,0.285714285714,0,196",
+      "15,5,0.333333333333,1,225",
+      "16,5,0.312500000000,0,256",
+      "17,6,0.352941176471,1,289",
+      "18,6,0.333333333333,0,324",
+      "19,7,0.368421052632,1,361",
+      "20,8,0.400000000000,1,400",
+    ].join("\n");
+
+    els.btnExample.addEventListener("click", async () => {
+      await loadAndRender(exampleCSV, "Built-in example trace");
+    });
+
+    // Redraw crisply on resize using last data (if any)
+    let lastPsi = null, lastG = null;
+    function redrawIfLoaded() {
+      if (lastPsi && lastG) drawPlots(els.cv, lastPsi, lastG);
+    }
+    const _origDraw = drawPlots;
+    drawPlots = function(canvas, psi, g) {
+      lastPsi = psi;
+      lastG = g;
+      _origDraw(canvas, psi, g);
+    };
+    window.addEventListener("resize", () => redrawIfLoaded());
+
+    // initial crisp sizing
+    resizeCanvasToDisplaySize(els.cv);
+    setStatus("Load ssc_trace.csv to view Psi(t) and g(i).", "sub");
+  </script>
+</body>
+</html>
